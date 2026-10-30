@@ -32,4 +32,4 @@ jobs:
         run: ruff check .
 
       - name: Ejecutar tests
-        run: pytest -v
+        run: python -m pytest -v # "python -m" añade la carpeta actual al path, para que encuentre "app"
