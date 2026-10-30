@@ -1,0 +1,35 @@
+# Nombre que verás en la pestaña "Actions" de GitHub
+name: CI
+
+# Cuándo se ejecuta: en cada push a main y en cada pull request hacia main
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    # Tipo de máquina virtual que GitHub te presta (Linux, limpia en cada ejecución)
+    runs-on: ubuntu-latest
+
+    steps:
+      # La máquina empieza vacía: este paso descarga tu repo en ella
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      # Instala Python 3.11 (la misma versión que usas en local)
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip # guarda las dependencias descargadas para acelerar futuras ejecuciones
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Revisar el código con ruff
+        run: ruff check .
+
+      - name: Ejecutar tests
+        run: pytest -v
