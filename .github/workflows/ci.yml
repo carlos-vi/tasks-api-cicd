@@ -33,3 +33,40 @@ jobs:
 
       - name: Ejecutar tests
         run: python -m pytest -v # "python -m" añade la carpeta actual al path, para que encuentre "app"
+
+  docker:
+    # "needs" hace que este job espere al de tests: si los tests fallan, no se publica nada
+    needs: test
+    # Solo publicamos imágenes cuando el código llega a main, no en cada pull request
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    # Permisos del token temporal que GitHub da a este job (por defecto son mínimos).
+    # packages: write permite subir imágenes al registro de GitHub
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      # Inicia sesión en GHCR (el registro de imágenes de GitHub).
+      # GITHUB_TOKEN lo genera GitHub solo en cada ejecución: no hay que crear ni guardar contraseñas
+      - name: Iniciar sesión en GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Construye la imagen con el Dockerfile y la sube. Le ponemos dos etiquetas (tags):
+      # "latest" (siempre la más reciente) y el hash del commit (para identificar cada versión exacta)
+      - name: Construir y publicar la imagen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
