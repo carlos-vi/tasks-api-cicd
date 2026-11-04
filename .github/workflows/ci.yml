@@ -70,3 +70,18 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  deploy:
+    # Solo se despliega si la imagen ya está publicada (y, por encadenamiento, si los tests pasaron)
+    needs: docker
+    runs-on: ubuntu-latest
+
+    steps:
+      # Un "deploy hook" es una URL secreta de Render: al hacerle una petición POST,
+      # Render descarga la imagen :latest de GHCR y arranca la nueva versión.
+      # El secreto se pasa por una variable de entorno para que no aparezca escrito en el comando.
+      # --fail hace que curl devuelva error (y el job falle) si Render responde con un código de error
+      - name: Avisar a Render para que despliegue
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
