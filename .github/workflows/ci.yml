@@ -77,9 +77,59 @@ jobs:
       - name: Ejecutar tests contra PostgreSQL
         run: python -m pytest -v
 
+  # Comprueba que los manifiestos de k8s/ funcionan de verdad: levanta un clúster de Kubernetes
+  # temporal dentro de la máquina del job, despliega la app y la prueba. Se destruye al terminar
+  k8s-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      # kind = "Kubernetes IN Docker": crea un clúster usando contenedores como si fueran nodos
+      - name: Crear clúster de Kubernetes (kind)
+        uses: helm/kind-action@v1.15.0
+
+      # El clúster no ve las imágenes del Docker de la máquina: hay que cargarlas dentro.
+      # En local no hacía falta porque Docker Desktop comparte las imágenes con su clúster
+      - name: Construir la imagen y cargarla en el clúster
+        run: |
+          docker build -t tasks-api:local .
+          kind load docker-image tasks-api:local
+
+      # El Secret no está en el repo (es público), así que se crea aquí con una contraseña de prueba
+      - name: Desplegar en Kubernetes
+        run: |
+          kubectl apply -f k8s/00-namespace.yaml
+          kubectl create secret generic postgres-credentials -n tasks \
+            --from-literal=POSTGRES_USER=tasks \
+            --from-literal=POSTGRES_PASSWORD=ci-k8s-password \
+            --from-literal=POSTGRES_DB=tasks
+          kubectl apply -f k8s/10-postgres.yaml -f k8s/20-api.yaml
+
+      # "rollout status" espera a que todas las réplicas pasen su readinessProbe
+      - name: Esperar a que todo esté listo
+        run: |
+          kubectl rollout status statefulset/db -n tasks --timeout=180s
+          kubectl rollout status deployment/api -n tasks --timeout=180s
+
+      # Un pod temporal llama al Service "api", igual que haría cualquier otra pieza del clúster
+      - name: Probar la API a través del Service
+        run: |
+          kubectl run probe --rm -i --restart=Never -n tasks --image=python:3.11-slim --quiet -- \
+            python -c "import urllib.request as u; print(u.urlopen('http://api/health').read().decode())"
+
+      # "if: failure()" = solo se ejecuta si algún paso anterior falló. Deja pistas para depurar
+      - name: Mostrar el estado del clúster si algo falló
+        if: failure()
+        run: |
+          kubectl get pods -n tasks -o wide
+          kubectl describe pods -n tasks
+          kubectl logs -n tasks -l app=api --all-containers --tail=50
+
   docker:
     # "needs" hace que este job espere a los de tests: si alguno falla, no se publica nada
-    needs: [test, test-postgres]
+    needs: [test, test-postgres, k8s-smoke]
     # Este job corre también en pull requests: construye y escanea la imagen siempre,
     # pero solo la publica cuando el código llega a main (ver el "if" del último paso)
     runs-on: ubuntu-latest

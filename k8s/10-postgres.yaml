@@ -1,0 +1,76 @@
+# --- PostgreSQL ---
+# La contraseña NO está en este archivo (el repo es público). Se crea el Secret a mano:
+#   kubectl create secret generic postgres-credentials -n tasks \
+#     --from-literal=POSTGRES_USER=tasks \
+#     --from-literal=POSTGRES_PASSWORD=<una-contraseña> \
+#     --from-literal=POSTGRES_DB=tasks
+
+# Un Service da un nombre y una dirección estables dentro del clúster.
+# La API se conectará a "db", igual que en Docker Compose
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: tasks
+spec:
+  selector:
+    app: db # reparte el tráfico a los pods con esta etiqueta
+  ports:
+    - port: 5432
+---
+# StatefulSet: como un Deployment pero para servicios con datos. Cada pod conserva su
+# identidad y su disco aunque se recree
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: tasks
+spec:
+  serviceName: db
+  replicas: 1 # una sola base de datos; replicarla correctamente es otro tema
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          # Las variables salen del Secret en lugar de escribirse aquí
+          envFrom:
+            - secretRef:
+                name: postgres-credentials
+          env:
+            # Subcarpeta dentro del disco: PostgreSQL se queja si la raíz del disco no está vacía
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          # Readiness: "¿ya puedes recibir tráfico?". Hasta que no responda, el Service no le manda nada
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+  # Plantilla de disco: Kubernetes crea un PersistentVolumeClaim por cada pod.
+  # Es el equivalente al volumen "db_data" de Compose
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
