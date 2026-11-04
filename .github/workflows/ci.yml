@@ -34,9 +34,52 @@ jobs:
       - name: Ejecutar tests
         run: python -m pytest -v # "python -m" añade la carpeta actual al path, para que encuentre "app"
 
+  # Los mismos tests, pero contra un PostgreSQL de verdad en lugar de SQLite.
+  # Detecta problemas que SQLite no revela (tipos, drivers, conexión...)
+  test-postgres:
+    runs-on: ubuntu-latest
+
+    # Un "service container" es un contenedor que GitHub arranca junto al job,
+    # accesible desde los pasos en localhost. Aquí, la base de datos
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: tasks
+          POSTGRES_PASSWORD: ci-password
+          POSTGRES_DB: tasks
+        ports:
+          - 5432:5432
+        # Hasta que no esté sana, GitHub no ejecuta los pasos del job
+        options: >-
+          --health-cmd "pg_isready -U tasks -d tasks"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    # Esta variable hace que la app use PostgreSQL en vez de SQLite
+    env:
+      DATABASE_URL: postgresql+psycopg://tasks:ci-password@localhost:5432/tasks
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar tests contra PostgreSQL
+        run: python -m pytest -v
+
   docker:
-    # "needs" hace que este job espere al de tests: si los tests fallan, no se publica nada
-    needs: test
+    # "needs" hace que este job espere a los de tests: si alguno falla, no se publica nada
+    needs: [test, test-postgres]
     # Este job corre también en pull requests: construye y escanea la imagen siempre,
     # pero solo la publica cuando el código llega a main (ver el "if" del último paso)
     runs-on: ubuntu-latest

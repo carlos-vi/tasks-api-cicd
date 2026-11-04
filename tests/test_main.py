@@ -1,20 +1,21 @@
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-client = TestClient(app)
-
-
-def test_health():
+def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_create_and_list_tasks():
+def test_create_and_list_tasks(client):
     response = client.post("/tasks", json={"title": "Aprender CI/CD"})
     assert response.status_code == 201
-    assert response.json()["title"] == "Aprender CI/CD"
+    created = response.json()
+    assert created["title"] == "Aprender CI/CD"
+    assert isinstance(created["id"], int)
 
     response = client.get("/tasks")
-    assert any(t["title"] == "Aprender CI/CD" for t in response.json())
+    assert {"id": created["id"], "title": "Aprender CI/CD"} in response.json()
+
+
+def test_ids_are_unique(client):
+    first = client.post("/tasks", json={"title": "una"}).json()
+    second = client.post("/tasks", json={"title": "dos"}).json()
+    assert first["id"] != second["id"]
