@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI
-from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -19,7 +21,8 @@ app = FastAPI(title="Tasks API experiment", lifespan=lifespan)
 
 
 class TaskIn(BaseModel):
-    title: str
+    # 200 es el tamaño de la columna en la base de datos
+    title: str = Field(min_length=1, max_length=200)
 
 
 @app.get("/health")
@@ -40,3 +43,9 @@ def create_task(task: TaskIn, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_task)
     return {"id": new_task.id, "title": new_task.title}
+
+
+# Sirve la interfaz web (app/static) en "/". Va al FINAL a propósito: FastAPI atiende las rutas
+# en orden, así que /health, /tasks y /docs se resuelven antes y esto solo recoge el resto.
+# La ruta se calcula a partir de este archivo para que funcione desde cualquier carpeta
+app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
