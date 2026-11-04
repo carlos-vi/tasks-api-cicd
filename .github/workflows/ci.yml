@@ -37,8 +37,8 @@ jobs:
   docker:
     # "needs" hace que este job espere al de tests: si los tests fallan, no se publica nada
     needs: test
-    # Solo publicamos imágenes cuando el código llega a main, no en cada pull request
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Este job corre también en pull requests: construye y escanea la imagen siempre,
+    # pero solo la publica cuando el código llega a main (ver el "if" del último paso)
     runs-on: ubuntu-latest
 
     # Permisos del token temporal que GitHub da a este job (por defecto son mínimos).
@@ -54,15 +54,43 @@ jobs:
       # Inicia sesión en GHCR (el registro de imágenes de GitHub).
       # GITHUB_TOKEN lo genera GitHub solo en cada ejecución: no hay que crear ni guardar contraseñas
       - name: Iniciar sesión en GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Construye la imagen con el Dockerfile y la sube. Le ponemos dos etiquetas (tags):
-      # "latest" (siempre la más reciente) y el hash del commit (para identificar cada versión exacta)
-      - name: Construir y publicar la imagen
+      # Buildx es el motor de construcción moderno de Docker; además guarda la caché de capas
+      # dentro del job, así que el segundo build de más abajo reutiliza lo ya construido
+      - name: Preparar Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # "load: true" deja la imagen en el Docker local de la máquina (sin subirla a ningún sitio)
+      # para poder escanearla antes de decidir si se publica
+      - name: Construir la imagen (sin publicar)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: tasks-api:scan
+
+      # Trivy compara todo lo que hay dentro de la imagen (paquetes de Linux y librerías de Python)
+      # con una base de datos pública de vulnerabilidades conocidas (CVEs).
+      # exit-code 1 = si encuentra alguna grave, el paso falla y el job se pone en rojo.
+      # ignore-unfixed ignora las que todavía no tienen arreglo, porque no podríamos hacer nada
+      - name: Escanear vulnerabilidades con Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: tasks-api:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      # Solo llegamos aquí si el escaneo pasó. Se publica únicamente al hacer push a main
+      # (no en pull requests). Dos etiquetas: "latest" (la más reciente) y el hash del commit
+      - name: Publicar la imagen
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -74,6 +102,9 @@ jobs:
   deploy:
     # Solo se despliega si la imagen ya está publicada (y, por encadenamiento, si los tests pasaron)
     needs: docker
+    # El job "docker" ya no distingue entre PR y main, así que la condición vive aquí:
+    # solo desplegamos cuando el código llega a main, nunca desde una pull request
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
