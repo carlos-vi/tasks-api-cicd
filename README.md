@@ -22,6 +22,15 @@ docker build -t tasks-api .
 docker run -p 8000:8000 tasks-api
 ```
 
+## Con Docker Compose (API + PostgreSQL)
+```
+copy .env.example .env     # y cambia la contraseña
+docker compose up -d --build
+docker compose down        # para (los datos se conservan en el volumen)
+docker compose down -v     # para y BORRA también los datos
+```
+Sin la variable `DATABASE_URL` la app usa SQLite, así que `uvicorn` en local sigue funcionando sin base de datos externa.
+
 ## Pipeline (GitHub Actions)
 - **test:** ruff + pytest, en cada push y pull request.
 - **docker:** construye y publica la imagen en GHCR (solo en `main`).
