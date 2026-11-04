@@ -80,7 +80,7 @@ jobs:
       # exit-code 1 = si encuentra alguna grave, el paso falla y el job se pone en rojo.
       # ignore-unfixed ignora las que todavía no tienen arreglo, porque no podríamos hacer nada
       - name: Escanear vulnerabilidades con Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: tasks-api:scan
           severity: HIGH,CRITICAL
