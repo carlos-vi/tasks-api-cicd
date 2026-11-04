@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import String, create_engine
+from sqlalchemy import String, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -50,4 +50,11 @@ def get_db():
 
 
 def create_tables():
-    Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        if engine.dialect.name == "postgresql":
+            # Con varias réplicas arrancando a la vez, todas intentarían crear la tabla y las
+            # perdedoras fallarían. Este candado (el número es arbitrario) hace que solo una
+            # entre cada vez; se libera solo al terminar la transacción. Las demás esperan y,
+            # al entrar, ven que la tabla ya existe y no hacen nada
+            conn.execute(text("SELECT pg_advisory_xact_lock(1)"))
+        Base.metadata.create_all(conn)

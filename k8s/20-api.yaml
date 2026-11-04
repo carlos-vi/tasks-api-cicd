@@ -1,0 +1,87 @@
+# --- API ---
+# Deployment: "quiero siempre 2 copias (pods) de esta aplicación funcionando".
+# Si un pod muere, Kubernetes crea otro. Si cambias la imagen, los sustituye de uno en uno
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: tasks
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      # Los init containers se ejecutan ANTES que la aplicación y deben terminar bien.
+      # Es el equivalente a "depends_on: service_healthy" de Compose:
+      # esperamos a que PostgreSQL acepte conexiones
+      initContainers:
+        - name: esperar-db
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h db -p 5432; do echo 'esperando a la base de datos...'; sleep 2; done"]
+      containers:
+        - name: api
+          # Imagen construida en local con "docker build -t tasks-api:local ."
+          image: tasks-api:local
+          imagePullPolicy: IfNotPresent # no la busques en internet si ya la tienes
+          ports:
+            - containerPort: 8000
+          env:
+            # Primero se cargan las credenciales del Secret...
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: POSTGRES_DB
+            # ...y con ellas se construye DATABASE_URL. $(VAR) se sustituye por una variable
+            # definida más arriba. "db" es el Service de PostgreSQL
+            - name: DATABASE_URL
+              value: postgresql+psycopg://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@db:5432/$(POSTGRES_DB)
+          # Readiness: mientras falle, el pod no recibe tráfico (arranque, o problema temporal)
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          # Liveness: si falla varias veces seguidas, Kubernetes REINICIA el contenedor
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          # requests = lo que se reserva; limits = lo máximo que puede usar
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+---
+# Service: una única dirección ("api") que reparte las peticiones entre los 2 pods
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: tasks
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 80 # puerto del Service
+      targetPort: 8000 # puerto del contenedor

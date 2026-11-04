@@ -1,0 +1,6 @@
+# Un namespace es una carpeta virtual dentro del clúster: agrupa todo lo de esta aplicación
+# para no mezclarlo con otras cosas. Se puede borrar entero con "kubectl delete namespace tasks"
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tasks

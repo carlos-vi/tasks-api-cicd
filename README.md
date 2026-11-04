@@ -31,6 +31,18 @@ docker compose down -v     # para y BORRA también los datos
 ```
 Sin la variable `DATABASE_URL` la app usa SQLite, así que `uvicorn` en local sigue funcionando sin base de datos externa.
 
+## Con Kubernetes (Docker Desktop)
+Activa Kubernetes en Docker Desktop (Settings > Kubernetes). Los manifiestos están en `k8s/`.
+```
+docker build -t tasks-api:local .
+kubectl apply -f k8s/00-namespace.yaml
+kubectl create secret generic postgres-credentials -n tasks --from-literal=POSTGRES_USER=tasks --from-literal=POSTGRES_PASSWORD=<contraseña> --from-literal=POSTGRES_DB=tasks
+kubectl apply -f k8s/10-postgres.yaml -f k8s/20-api.yaml
+kubectl port-forward svc/api 8080:80 -n tasks     # API en http://localhost:8080/docs
+kubectl delete namespace tasks                    # limpiar todo
+```
+El Secret no está en el repo (es público): se crea con el comando de arriba.
+
 ## Pipeline (GitHub Actions)
 - **test:** ruff + pytest, en cada push y pull request.
 - **docker:** construye y publica la imagen en GHCR (solo en `main`).
