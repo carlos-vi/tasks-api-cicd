@@ -6,7 +6,19 @@ from sqlalchemy.pool import StaticPool
 
 # La base de datos se elige con una variable de entorno. Sin ella usamos SQLite (un archivo),
 # así la app arranca sin necesitar nada más. Con Docker Compose o Kubernetes se apunta a PostgreSQL.
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tasks.db")
+
+
+def normalize_database_url(url: str) -> str:
+    # Plataformas como Render entregan la URL como "postgres://" o "postgresql://", pero con ese
+    # formato SQLAlchemy busca el driver antiguo (psycopg2). Nosotros usamos psycopg 3,
+    # que se indica con "postgresql+psycopg://"
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix) :]
+    return url
+
+
+DATABASE_URL = normalize_database_url(os.getenv("DATABASE_URL", "sqlite:///./tasks.db"))
 
 engine_args: dict = {}
 if DATABASE_URL.startswith("sqlite"):
