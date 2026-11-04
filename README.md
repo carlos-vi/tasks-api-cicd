@@ -17,6 +17,7 @@ API REST de gestión de tareas construida como **proyecto de aprendizaje de CI/C
 - **Entrega continua**: la imagen se publica en GitHub Container Registry y se despliega automáticamente en Render.
 - **Flujo de trabajo de equipo**: rama `main` protegida, cambios mediante *pull request* y checks obligatorios.
 - **Kubernetes**: manifiestos para la API (2 réplicas, sondas de salud) y PostgreSQL con almacenamiento persistente.
+- **Interfaz web** sencilla (HTML, CSS y JavaScript sin dependencias) servida por la propia API en `/`.
 
 ## Arquitectura del pipeline
 
@@ -52,9 +53,12 @@ Documentación interactiva (Swagger UI) en `/docs`.
 
 | Método | Ruta | Descripción |
 |---|---|---|
+| `GET` | `/` | Interfaz web para ver y crear tareas |
 | `GET` | `/health` | Comprobación de estado. Devuelve `{"status": "ok"}` |
 | `GET` | `/tasks` | Lista todas las tareas |
-| `POST` | `/tasks` | Crea una tarea. Cuerpo: `{"title": "texto"}`. Devuelve `201` |
+| `POST` | `/tasks` | Crea una tarea. Cuerpo: `{"title": "texto"}` (entre 1 y 200 caracteres). Devuelve `201`, o `422` si el título no es válido |
+
+La interfaz web (`app/static/`) está montada en `/` **después** de las rutas de la API, por lo que `/health`, `/tasks` y `/docs` siempre tienen prioridad. Al vivir en el mismo servidor que la API, llama a `/tasks` con una ruta relativa y no necesita configuración por entorno.
 
 ## Puesta en marcha
 
@@ -173,11 +177,12 @@ gh pr create
 ```
 .
 ├── app/
-│   ├── main.py                 # Endpoints de FastAPI
-│   └── db.py                   # Conexión a base de datos, modelo y creación de tablas
+│   ├── main.py                 # Endpoints de FastAPI y montaje de la interfaz
+│   ├── db.py                   # Conexión a base de datos, modelo y creación de tablas
+│   └── static/                 # Interfaz web: index.html, app.js, style.css
 ├── tests/
 │   ├── conftest.py             # Fixture del cliente de pruebas
-│   ├── test_main.py            # Tests de los endpoints
+│   ├── test_main.py            # Tests de los endpoints y de la interfaz
 │   └── test_db.py              # Tests de la normalización de DATABASE_URL
 ├── k8s/
 │   ├── 00-namespace.yaml
@@ -192,7 +197,8 @@ gh pr create
 
 ## Limitaciones conocidas
 
-- **La API no tiene autenticación**: cualquiera con la URL puede leer y crear tareas.
+- **La API y la interfaz no tienen autenticación**: cualquiera con la URL puede leer y crear tareas.
+- **La interfaz se despliega junto a la API**, en la misma imagen: no se puede actualizar una sin redesplegar la otra.
 - **Las tablas se crean al arrancar** (`create_all`), sin herramienta de migraciones. Para evolucionar el esquema en producción habría que incorporar Alembic. Para que varias réplicas puedan arrancar a la vez, la creación se protege con un *advisory lock* de PostgreSQL.
 - **SQLAlchemy está fijado en la serie 2.0**: la 2.1 exige módulos compilados que algunas políticas de Windows (control de aplicaciones) bloquean.
 - **Los límites del plan gratuito de Render** se aplican al despliegue: el servicio se suspende tras un periodo de inactividad y la base de datos gratuita caduca a los 30 días.

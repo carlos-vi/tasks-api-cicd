@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tasks</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Tareas</h1>
+
+    <form id="form">
+      <input id="title" type="text" maxlength="200" placeholder="¿Qué hay que hacer?" autocomplete="off" required>
+      <button type="submit">Añadir</button>
+    </form>
+
+    <p id="message" role="status"></p>
+    <ul id="tasks"></ul>
+
+    <footer>
+      Interfaz servida por la propia API · <a href="/docs">Documentación de la API</a>
+    </footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
