@@ -4,6 +4,10 @@ FROM python:3.11-slim
 # Carpeta de trabajo dentro del contenedor; los comandos siguientes se ejecutan aquí
 WORKDIR /code
 
+# La imagen base trae un setuptools antiguo que lleva dentro copias de otras librerías
+# (jaraco.context, wheel) con vulnerabilidades conocidas. Actualizarlo las arregla
+RUN pip install --no-cache-dir --upgrade setuptools wheel
+
 # Primero solo las dependencias: mientras requirements.txt no cambie,
 # Docker reutiliza esta capa de la caché y no reinstala nada al cambiar el código
 COPY requirements.txt .
