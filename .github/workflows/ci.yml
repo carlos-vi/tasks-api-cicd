@@ -89,6 +89,9 @@ jobs:
       # kind = "Kubernetes IN Docker": crea un clúster usando contenedores como si fueran nodos
       - name: Crear clúster de Kubernetes (kind)
         uses: helm/kind-action@v1.15.0
+        with:
+          # Por defecto la acción lo llama "chart-testing"; con este nombre "kind load" lo encuentra
+          cluster_name: kind
 
       # El clúster no ve las imágenes del Docker de la máquina: hay que cargarlas dentro.
       # En local no hacía falta porque Docker Desktop comparte las imágenes con su clúster
