@@ -1,12 +1,12 @@
 # --- PostgreSQL ---
-# La contraseña NO está en este archivo (el repo es público). Se crea el Secret a mano:
+# The password is NOT in this file (the repo is public). The Secret is created by hand:
 #   kubectl create secret generic postgres-credentials -n tasks \
 #     --from-literal=POSTGRES_USER=tasks \
-#     --from-literal=POSTGRES_PASSWORD=<una-contraseña> \
+#     --from-literal=POSTGRES_PASSWORD=<a-password> \
 #     --from-literal=POSTGRES_DB=tasks
 
-# Un Service da un nombre y una dirección estables dentro del clúster.
-# La API se conectará a "db", igual que en Docker Compose
+# A Service gives a stable name and address inside the cluster.
+# The API will connect to "db", just like in Docker Compose
 apiVersion: v1
 kind: Service
 metadata:
@@ -14,12 +14,12 @@ metadata:
   namespace: tasks
 spec:
   selector:
-    app: db # reparte el tráfico a los pods con esta etiqueta
+    app: db # sends traffic to the pods with this label
   ports:
     - port: 5432
 ---
-# StatefulSet: como un Deployment pero para servicios con datos. Cada pod conserva su
-# identidad y su disco aunque se recree
+# StatefulSet: like a Deployment but for services with data. Each pod keeps its
+# identity and its own disk even if it is recreated
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -27,7 +27,7 @@ metadata:
   namespace: tasks
 spec:
   serviceName: db
-  replicas: 1 # una sola base de datos; replicarla correctamente es otro tema
+  replicas: 1 # a single database; replicating it properly is a different topic
   selector:
     matchLabels:
       app: db
@@ -41,18 +41,18 @@ spec:
           image: postgres:16-alpine
           ports:
             - containerPort: 5432
-          # Las variables salen del Secret en lugar de escribirse aquí
+          # The variables come from the Secret instead of being written here
           envFrom:
             - secretRef:
                 name: postgres-credentials
           env:
-            # Subcarpeta dentro del disco: PostgreSQL se queja si la raíz del disco no está vacía
+            # Subfolder inside the disk: PostgreSQL complains if the root of the disk is not empty
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
-          # Readiness: "¿ya puedes recibir tráfico?". Hasta que no responda, el Service no le manda nada
+          # Readiness: "can you receive traffic yet?". Until it answers, the Service sends it nothing
           readinessProbe:
             exec:
               command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
@@ -64,8 +64,8 @@ spec:
               memory: 128Mi
             limits:
               memory: 256Mi
-  # Plantilla de disco: Kubernetes crea un PersistentVolumeClaim por cada pod.
-  # Es el equivalente al volumen "db_data" de Compose
+  # Disk template: Kubernetes creates a PersistentVolumeClaim for each pod.
+  # It is the equivalent of the "db_data" volume in Compose
   volumeClaimTemplates:
     - metadata:
         name: data

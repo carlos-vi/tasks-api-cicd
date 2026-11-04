@@ -1,5 +1,5 @@
-# Un namespace es una carpeta virtual dentro del clúster: agrupa todo lo de esta aplicación
-# para no mezclarlo con otras cosas. Se puede borrar entero con "kubectl delete namespace tasks"
+# A namespace is a virtual folder inside the cluster: it groups everything for this application
+# so it does not get mixed up with other things. It can be deleted entirely with "kubectl delete namespace tasks"
 apiVersion: v1
 kind: Namespace
 metadata:

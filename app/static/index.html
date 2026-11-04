@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,18 +8,18 @@
 </head>
 <body>
   <main>
-    <h1>Tareas</h1>
+    <h1>Tasks</h1>
 
     <form id="form">
-      <input id="title" type="text" maxlength="200" placeholder="¿Qué hay que hacer?" autocomplete="off" required>
-      <button type="submit">Añadir</button>
+      <input id="title" type="text" maxlength="200" placeholder="What needs to be done?" autocomplete="off" required>
+      <button type="submit">Add</button>
     </form>
 
     <p id="message" role="status"></p>
     <ul id="tasks"></ul>
 
     <footer>
-      Interfaz servida por la propia API · <a href="/docs">Documentación de la API</a>
+      UI served by the API itself · <a href="/docs">API documentation</a>
     </footer>
   </main>
   <script src="app.js"></script>

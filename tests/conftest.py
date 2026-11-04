@@ -1,7 +1,7 @@
 import os
 
-# Debe ir antes de importar la app, que crea la conexión al importarse.
-# En local usamos SQLite en memoria; en CI se define DATABASE_URL apuntando a PostgreSQL
+# This must come before importing the app, which creates its database connection on import.
+# Locally we use in-memory SQLite; in CI, DATABASE_URL is set to point at PostgreSQL
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 import pytest  # noqa: E402
@@ -12,6 +12,6 @@ from app.main import app  # noqa: E402
 
 @pytest.fixture
 def client():
-    # Con "with", FastAPI ejecuta el arranque de la app (y por tanto crea las tablas)
+    # With "with", FastAPI runs the app startup (and therefore creates the tables)
     with TestClient(app) as c:
         yield c

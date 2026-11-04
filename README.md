@@ -1,4 +1,4 @@
-# Tasks API · CI/CD de extremo a extremo
+# Tasks API · End-to-end CI/CD
 
 [![CI](https://github.com/carlos-vi/tasks-api-cicd/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/carlos-vi/tasks-api-cicd/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11-blue)
@@ -7,68 +7,68 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5)
 
-API REST de gestión de tareas construida como **proyecto de aprendizaje de CI/CD**. La aplicación es deliberadamente sencilla: lo importante es el ciclo completo que la rodea, desde un `git push` hasta un despliegue en producción, pasando por tests, escaneo de seguridad, contenedores y orquestación.
+A task-management REST API built as a **CI/CD learning project**. The application is deliberately simple: what matters is the complete cycle around it, from a `git push` to a production deployment, going through tests, security scanning, containers and orchestration.
 
-## Qué demuestra este proyecto
+## What this project demonstrates
 
-- **Integración continua** con GitHub Actions: lint, tests con SQLite y con PostgreSQL real, y prueba de despliegue en un clúster de Kubernetes efímero.
-- **Contenedores** con Docker: imagen propia, construcción con caché de capas y entorno completo con Docker Compose.
-- **Seguridad en el pipeline**: escaneo de vulnerabilidades de la imagen con Trivy antes de publicarla.
-- **Entrega continua**: la imagen se publica en GitHub Container Registry y se despliega automáticamente en Render.
-- **Flujo de trabajo de equipo**: rama `main` protegida, cambios mediante *pull request* y checks obligatorios.
-- **Kubernetes**: manifiestos para la API (2 réplicas, sondas de salud) y PostgreSQL con almacenamiento persistente.
-- **Interfaz web** sencilla (HTML, CSS y JavaScript sin dependencias) servida por la propia API en `/`.
+- **Continuous integration** with GitHub Actions: lint, tests against SQLite and a real PostgreSQL, and a deployment smoke test on an ephemeral Kubernetes cluster.
+- **Containers** with Docker: a custom image, layer-cached builds and a complete environment with Docker Compose.
+- **Pipeline security**: image vulnerability scanning with Trivy before publishing.
+- **Continuous delivery**: the image is published to GitHub Container Registry and automatically deployed to Render.
+- **Team workflow**: protected `main` branch, changes through *pull requests* and required checks.
+- **Kubernetes**: manifests for the API (2 replicas, health probes) and PostgreSQL with persistent storage.
+- **A simple web UI** (HTML, CSS and dependency-free JavaScript) served by the API itself at `/`.
 
-## Arquitectura del pipeline
+## Pipeline architecture
 
 ```mermaid
 flowchart LR
     A[Push / Pull Request] --> T[test<br/>ruff + pytest · SQLite]
     A --> P[test-postgres<br/>pytest · PostgreSQL]
-    A --> K[k8s-smoke<br/>clúster kind efímero]
+    A --> K[k8s-smoke<br/>ephemeral kind cluster]
     T --> D
     P --> D
     K --> D
-    D[docker<br/>build + escaneo Trivy] -->|solo en main| G[Publicar en GHCR]
+    D[docker<br/>build + Trivy scan] -->|main only| G[Publish to GHCR]
     G --> R[deploy<br/>Render]
 ```
 
-En una *pull request* se ejecutan las pruebas y el escaneo, pero **no** se publica ni se despliega nada. Esas dos acciones solo ocurren cuando el código llega a `main`.
+On a *pull request* the tests and the scan run, but **nothing** is published or deployed. Those two actions only happen when the code reaches `main`.
 
 ## Stack
 
-| Capa | Tecnología |
+| Layer | Technology |
 |---|---|
 | API | Python 3.11 · FastAPI · Uvicorn |
-| Persistencia | SQLAlchemy 2.0 · SQLite (por defecto) · PostgreSQL 16 |
-| Tests y calidad | pytest · Ruff |
-| Contenedores | Docker · Docker Compose |
-| Orquestación | Kubernetes (manifiestos en `k8s/`) |
+| Persistence | SQLAlchemy 2.0 · SQLite (default) · PostgreSQL 16 |
+| Tests and quality | pytest · Ruff |
+| Containers | Docker · Docker Compose |
+| Orchestration | Kubernetes (manifests in `k8s/`) |
 | CI/CD | GitHub Actions · Trivy · GitHub Container Registry |
-| Despliegue | Render (servicio web + PostgreSQL gestionado) |
+| Deployment | Render (web service + managed PostgreSQL) |
 
 ## API
 
-Documentación interactiva (Swagger UI) en `/docs`.
+Interactive documentation (Swagger UI) at `/docs`.
 
-| Método | Ruta | Descripción |
+| Method | Path | Description |
 |---|---|---|
-| `GET` | `/` | Interfaz web para ver y crear tareas |
-| `GET` | `/health` | Comprobación de estado. Devuelve `{"status": "ok"}` |
-| `GET` | `/tasks` | Lista todas las tareas |
-| `POST` | `/tasks` | Crea una tarea. Cuerpo: `{"title": "texto"}` (entre 1 y 200 caracteres). Devuelve `201`, o `422` si el título no es válido |
+| `GET` | `/` | Web UI to view and create tasks |
+| `GET` | `/health` | Health check. Returns `{"status": "ok"}` |
+| `GET` | `/tasks` | Lists all tasks |
+| `POST` | `/tasks` | Creates a task. Body: `{"title": "text"}` (1 to 200 characters). Returns `201`, or `422` if the title is not valid |
 
-La interfaz web (`app/static/`) está montada en `/` **después** de las rutas de la API, por lo que `/health`, `/tasks` y `/docs` siempre tienen prioridad. Al vivir en el mismo servidor que la API, llama a `/tasks` con una ruta relativa y no necesita configuración por entorno.
+The web UI (`app/static/`) is mounted at `/` **after** the API routes, so `/health`, `/tasks` and `/docs` always take priority. Since it lives on the same server as the API, it calls `/tasks` with a relative path and needs no per-environment configuration.
 
-## Puesta en marcha
+## Getting started
 
-### Requisitos
+### Requirements
 
 - Python 3.11
-- Docker (para las opciones con contenedores)
-- Kubernetes habilitado en Docker Desktop y `kubectl` (solo para la opción de Kubernetes)
+- Docker (for the container options)
+- Kubernetes enabled in Docker Desktop and `kubectl` (only for the Kubernetes option)
 
-### 1. En local, sin Docker
+### 1. Locally, without Docker
 
 ```bash
 python -m venv .venv
@@ -77,129 +77,129 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-La API queda en <http://localhost:8000/docs>. Sin configuración adicional usa SQLite (un archivo `tasks.db`).
+The API is available at <http://localhost:8000/docs>. With no extra configuration it uses SQLite (a `tasks.db` file).
 
-### 2. Tests y linter
+### 2. Tests and linter
 
 ```bash
 python -m pytest
 python -m ruff check .
 ```
 
-Por defecto los tests usan SQLite en memoria. Para ejecutarlos contra PostgreSQL, define `DATABASE_URL` (ver [Configuración](#configuración)).
+By default the tests use in-memory SQLite. To run them against PostgreSQL, set `DATABASE_URL` (see [Configuration](#configuration)).
 
-### 3. Con Docker
+### 3. With Docker
 
 ```bash
 docker build -t tasks-api .
 docker run -p 8000:8000 tasks-api
 ```
 
-### 4. Con Docker Compose (API + PostgreSQL)
+### 4. With Docker Compose (API + PostgreSQL)
 
 ```bash
-cp .env.example .env               # Windows: copy .env.example .env  (y cambia la contraseña)
+cp .env.example .env               # Windows: copy .env.example .env  (and change the password)
 docker compose up -d --build
 ```
 
-Levanta dos contenedores conectados: la API y PostgreSQL, este último con un volumen para que los datos sobrevivan a los reinicios.
+It starts two connected containers: the API and PostgreSQL, the latter with a volume so the data survives restarts.
 
 ```bash
-docker compose down                # para y elimina los contenedores; los datos se conservan
-docker compose down -v             # igual, pero BORRA también los datos
+docker compose down                # stops and removes the containers; the data is kept
+docker compose down -v             # same, but it also DELETES the data
 ```
 
-### 5. Con Kubernetes
+### 5. With Kubernetes
 
-Los manifiestos están en [`k8s/`](k8s/). El *Secret* con las credenciales **no** se versiona (el repositorio es público) y se crea con un comando.
+The manifests are in [`k8s/`](k8s/). The *Secret* with the credentials is **not** versioned (the repository is public) and is created with a command.
 
 ```bash
 docker build -t tasks-api:local .
 kubectl apply -f k8s/00-namespace.yaml
 kubectl create secret generic postgres-credentials -n tasks \
   --from-literal=POSTGRES_USER=tasks \
-  --from-literal=POSTGRES_PASSWORD=<contraseña> \
+  --from-literal=POSTGRES_PASSWORD=<password> \
   --from-literal=POSTGRES_DB=tasks
 kubectl apply -f k8s/10-postgres.yaml -f k8s/20-api.yaml
 
-kubectl port-forward svc/api 8080:80 -n tasks    # API en http://localhost:8080/docs
-kubectl delete namespace tasks                   # elimina todo
+kubectl port-forward svc/api 8080:80 -n tasks    # API at http://localhost:8080/docs
+kubectl delete namespace tasks                   # removes everything
 ```
 
-## Configuración
+## Configuration
 
-La aplicación se configura con variables de entorno.
+The application is configured with environment variables.
 
-| Variable | Uso | Valor por defecto |
+| Variable | Purpose | Default |
 |---|---|---|
-| `DATABASE_URL` | Base de datos a la que conectar. Acepta `sqlite://...`, `postgresql://...` y `postgres://...` | `sqlite:///./tasks.db` |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Credenciales de PostgreSQL en Docker Compose (archivo `.env`) | Ver `.env.example` |
+| `DATABASE_URL` | Database to connect to. Accepts `sqlite://...`, `postgresql://...` and `postgres://...` | `sqlite:///./tasks.db` |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | PostgreSQL credentials in Docker Compose (`.env` file) | See `.env.example` |
 
-Si `DATABASE_URL` empieza por `postgres://` o `postgresql://`, la aplicación lo reescribe internamente a `postgresql+psycopg://`, que es el formato del driver que utiliza.
+If `DATABASE_URL` starts with `postgres://` or `postgresql://`, the application internally rewrites it to `postgresql+psycopg://`, which is the format of the driver it uses.
 
-## Pipeline CI/CD
+## CI/CD pipeline
 
-El workflow está en [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+The workflow is in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-| Job | Cuándo | Qué hace |
+| Job | When | What it does |
 |---|---|---|
-| `test` | Push a `main` y pull requests | Ruff y pytest con SQLite |
-| `test-postgres` | Push a `main` y pull requests | La misma batería de tests contra un PostgreSQL real (*service container*) |
-| `k8s-smoke` | Push a `main` y pull requests | Crea un clúster con kind, despliega `k8s/` y comprueba `/health` a través del Service |
-| `docker` | Tras los tres anteriores | Construye la imagen, la escanea con Trivy (falla con vulnerabilidades HIGH/CRITICAL con arreglo disponible) y, solo en `main`, la publica en GHCR |
-| `deploy` | Solo en `main`, tras `docker` | Avisa a Render mediante un *deploy hook* para que descargue la nueva imagen |
+| `test` | Push to `main` and pull requests | Ruff and pytest with SQLite |
+| `test-postgres` | Push to `main` and pull requests | The same test suite against a real PostgreSQL (*service container*) |
+| `k8s-smoke` | Push to `main` and pull requests | Creates a cluster with kind, deploys `k8s/` and checks `/health` through the Service |
+| `docker` | After the three above | Builds the image, scans it with Trivy (fails on HIGH/CRITICAL vulnerabilities that have a fix) and, on `main` only, publishes it to GHCR |
+| `deploy` | On `main` only, after `docker` | Notifies Render through a *deploy hook* so it pulls the new image |
 
-**Secretos de Actions utilizados:** `RENDER_DEPLOY_HOOK_URL`. La publicación en GHCR usa el `GITHUB_TOKEN` temporal que GitHub genera en cada ejecución.
+**Actions secrets used:** `RENDER_DEPLOY_HOOK_URL`. Publishing to GHCR uses the temporary `GITHUB_TOKEN` that GitHub generates on every run.
 
-## Despliegue
+## Deployment
 
-- **Imagen:** `ghcr.io/carlos-vi/tasks-api-cicd`, con las etiquetas `latest` y el hash del commit.
-- **Aplicación:** servicio web de Render que ejecuta la imagen anterior.
-- **Datos:** PostgreSQL gestionado de Render, conectado mediante la variable `DATABASE_URL` configurada en el propio servicio. Los datos viven fuera del contenedor y sobreviven a cada despliegue.
+- **Image:** `ghcr.io/carlos-vi/tasks-api-cicd`, tagged `latest` and with the commit hash.
+- **Application:** a Render web service that runs the image above.
+- **Data:** managed Render PostgreSQL, connected through the `DATABASE_URL` variable configured on the service itself. The data lives outside the container and survives every deployment.
 
-## Flujo de trabajo
+## Workflow
 
-La rama `main` está protegida mediante un *ruleset* de GitHub:
+The `main` branch is protected by a GitHub *ruleset*:
 
-- No se puede subir directamente: todo cambio entra por *pull request*.
-- Los checks `test` y `docker` deben pasar para poder fusionar (este último depende a su vez de `test-postgres` y `k8s-smoke`).
-- No se permite borrar la rama ni reescribir su historial.
+- You cannot push to it directly: every change goes through a *pull request*.
+- The `test` and `docker` checks must pass to merge (the latter in turn depends on `test-postgres` and `k8s-smoke`).
+- The branch cannot be deleted and its history cannot be rewritten.
 
 ```bash
-git switch -c feature/mi-cambio
-# ...cambios y commits...
-git push -u origin feature/mi-cambio
+git switch -c feature/my-change
+# ...changes and commits...
+git push -u origin feature/my-change
 gh pr create
 ```
 
-## Estructura del repositorio
+## Repository structure
 
 ```
 .
 ├── app/
-│   ├── main.py                 # Endpoints de FastAPI y montaje de la interfaz
-│   ├── db.py                   # Conexión a base de datos, modelo y creación de tablas
-│   └── static/                 # Interfaz web: index.html, app.js, style.css
+│   ├── main.py                 # FastAPI endpoints and UI mounting
+│   ├── db.py                   # Database connection, model and table creation
+│   └── static/                 # Web UI: index.html, app.js, style.css
 ├── tests/
-│   ├── conftest.py             # Fixture del cliente de pruebas
-│   ├── test_main.py            # Tests de los endpoints y de la interfaz
-│   └── test_db.py              # Tests de la normalización de DATABASE_URL
+│   ├── conftest.py             # Test client fixture
+│   ├── test_main.py            # Endpoint and UI tests
+│   └── test_db.py              # Tests for DATABASE_URL normalization
 ├── k8s/
 │   ├── 00-namespace.yaml
-│   ├── 10-postgres.yaml        # Service + StatefulSet con volumen persistente
-│   └── 20-api.yaml             # Deployment (2 réplicas) + Service
-├── .github/workflows/ci.yml    # Pipeline de CI/CD
+│   ├── 10-postgres.yaml        # Service + StatefulSet with a persistent volume
+│   └── 20-api.yaml             # Deployment (2 replicas) + Service
+├── .github/workflows/ci.yml    # CI/CD pipeline
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .env.example
 └── requirements.txt
 ```
 
-## Limitaciones conocidas
+## Known limitations
 
-- **La API y la interfaz no tienen autenticación**: cualquiera con la URL puede leer y crear tareas.
-- **La interfaz se despliega junto a la API**, en la misma imagen: no se puede actualizar una sin redesplegar la otra.
-- **Las tablas se crean al arrancar** (`create_all`), sin herramienta de migraciones. Para evolucionar el esquema en producción habría que incorporar Alembic. Para que varias réplicas puedan arrancar a la vez, la creación se protege con un *advisory lock* de PostgreSQL.
-- **SQLAlchemy está fijado en la serie 2.0**: la 2.1 exige módulos compilados que algunas políticas de Windows (control de aplicaciones) bloquean.
-- **Los límites del plan gratuito de Render** se aplican al despliegue: el servicio se suspende tras un periodo de inactividad y la base de datos gratuita caduca a los 30 días.
-- **La imagen incluye las dependencias de desarrollo** (pytest, Ruff) porque se instala un único `requirements.txt`.
+- **The API and the UI have no authentication**: anyone with the URL can read and create tasks.
+- **The UI is deployed together with the API**, in the same image: one cannot be updated without redeploying the other.
+- **Tables are created on startup** (`create_all`), with no migration tool. To evolve the schema in production you would need to add Alembic. So that several replicas can start at the same time, the creation is protected with a PostgreSQL *advisory lock*.
+- **SQLAlchemy is pinned to the 2.0 series**: 2.1 requires compiled modules that some Windows policies (application control) block.
+- **Render's free-plan limits** apply to the deployment: the service is suspended after a period of inactivity and the free database expires after 30 days.
+- **The image includes the development dependencies** (pytest, Ruff) because a single `requirements.txt` is installed.

@@ -5,14 +5,14 @@ def test_health(client):
 
 
 def test_create_and_list_tasks(client):
-    response = client.post("/tasks", json={"title": "Aprender CI/CD"})
+    response = client.post("/tasks", json={"title": "Learn CI/CD"})
     assert response.status_code == 201
     created = response.json()
-    assert created["title"] == "Aprender CI/CD"
+    assert created["title"] == "Learn CI/CD"
     assert isinstance(created["id"], int)
 
     response = client.get("/tasks")
-    assert {"id": created["id"], "title": "Aprender CI/CD"} in response.json()
+    assert {"id": created["id"], "title": "Learn CI/CD"} in response.json()
 
 
 def test_title_validation(client):
@@ -32,13 +32,13 @@ def test_web_ui_is_served(client):
 
 
 def test_api_routes_still_take_priority_over_static_files(client):
-    # La interfaz está montada en "/", pero no debe tapar la API ni su documentación
+    # The UI is mounted at "/", but it must not shadow the API or its documentation
     assert client.get("/health").json() == {"status": "ok"}
     assert client.get("/tasks").headers["content-type"].startswith("application/json")
     assert client.get("/docs").status_code == 200
 
 
 def test_ids_are_unique(client):
-    first = client.post("/tasks", json={"title": "una"}).json()
-    second = client.post("/tasks", json={"title": "dos"}).json()
+    first = client.post("/tasks", json={"title": "one"}).json()
+    second = client.post("/tasks", json={"title": "two"}).json()
     assert first["id"] != second["id"]

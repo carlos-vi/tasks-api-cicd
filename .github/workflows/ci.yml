@@ -1,7 +1,7 @@
-# Nombre que verás en la pestaña "Actions" de GitHub
+# Name shown in the "Actions" tab on GitHub
 name: CI
 
-# Cuándo se ejecuta: en cada push a main y en cada pull request hacia main
+# When it runs: on every push to main and on every pull request targeting main
 on:
   push:
     branches: [main]
@@ -10,37 +10,37 @@ on:
 
 jobs:
   test:
-    # Tipo de máquina virtual que GitHub te presta (Linux, limpia en cada ejecución)
+    # Type of virtual machine GitHub lends you (Linux, clean on every run)
     runs-on: ubuntu-latest
 
     steps:
-      # La máquina empieza vacía: este paso descarga tu repo en ella
-      - name: Descargar el código
+      # The machine starts empty: this step downloads your repo into it
+      - name: Check out the code
         uses: actions/checkout@v4
 
-      # Instala Python 3.11 (la misma versión que usas en local)
-      - name: Instalar Python
+      # Installs Python 3.11 (the same version used locally)
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip # guarda las dependencias descargadas para acelerar futuras ejecuciones
+          cache: pip # stores the downloaded dependencies to speed up future runs
 
-      - name: Instalar dependencias
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Revisar el código con ruff
+      - name: Lint with ruff
         run: ruff check .
 
-      - name: Ejecutar tests
-        run: python -m pytest -v # "python -m" añade la carpeta actual al path, para que encuentre "app"
+      - name: Run tests
+        run: python -m pytest -v # "python -m" adds the current folder to the path, so it finds "app"
 
-  # Los mismos tests, pero contra un PostgreSQL de verdad en lugar de SQLite.
-  # Detecta problemas que SQLite no revela (tipos, drivers, conexión...)
+  # The same tests, but against a real PostgreSQL instead of SQLite.
+  # Catches problems that SQLite does not reveal (types, drivers, connection...)
   test-postgres:
     runs-on: ubuntu-latest
 
-    # Un "service container" es un contenedor que GitHub arranca junto al job,
-    # accesible desde los pasos en localhost. Aquí, la base de datos
+    # A "service container" is a container that GitHub starts alongside the job,
+    # reachable from the steps on localhost. Here, the database
     services:
       postgres:
         image: postgres:16-alpine
@@ -50,58 +50,58 @@ jobs:
           POSTGRES_DB: tasks
         ports:
           - 5432:5432
-        # Hasta que no esté sana, GitHub no ejecuta los pasos del job
+        # GitHub does not run the job steps until it is healthy
         options: >-
           --health-cmd "pg_isready -U tasks -d tasks"
           --health-interval 5s
           --health-timeout 3s
           --health-retries 10
 
-    # Esta variable hace que la app use PostgreSQL en vez de SQLite
+    # This variable makes the app use PostgreSQL instead of SQLite
     env:
       DATABASE_URL: postgresql+psycopg://tasks:ci-password@localhost:5432/tasks
 
     steps:
-      - name: Descargar el código
+      - name: Check out the code
         uses: actions/checkout@v4
 
-      - name: Instalar Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
 
-      - name: Instalar dependencias
+      - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Ejecutar tests contra PostgreSQL
+      - name: Run tests against PostgreSQL
         run: python -m pytest -v
 
-  # Comprueba que los manifiestos de k8s/ funcionan de verdad: levanta un clúster de Kubernetes
-  # temporal dentro de la máquina del job, despliega la app y la prueba. Se destruye al terminar
+  # Checks that the manifests in k8s/ really work: starts a temporary Kubernetes cluster
+  # inside the job's machine, deploys the app and tests it. It is destroyed when finished
   k8s-smoke:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Descargar el código
+      - name: Check out the code
         uses: actions/checkout@v4
 
-      # kind = "Kubernetes IN Docker": crea un clúster usando contenedores como si fueran nodos
-      - name: Crear clúster de Kubernetes (kind)
+      # kind = "Kubernetes IN Docker": creates a cluster using containers as if they were nodes
+      - name: Create Kubernetes cluster (kind)
         uses: helm/kind-action@v1.15.0
         with:
-          # Por defecto la acción lo llama "chart-testing"; con este nombre "kind load" lo encuentra
+          # By default the action names it "chart-testing"; with this name "kind load" finds it
           cluster_name: kind
 
-      # El clúster no ve las imágenes del Docker de la máquina: hay que cargarlas dentro.
-      # En local no hacía falta porque Docker Desktop comparte las imágenes con su clúster
-      - name: Construir la imagen y cargarla en el clúster
+      # The cluster cannot see the images in the machine's Docker: they must be loaded into it.
+      # Locally this was not needed because Docker Desktop shares its images with its cluster
+      - name: Build the image and load it into the cluster
         run: |
           docker build -t tasks-api:local .
           kind load docker-image tasks-api:local
 
-      # El Secret no está en el repo (es público), así que se crea aquí con una contraseña de prueba
-      - name: Desplegar en Kubernetes
+      # The Secret is not in the repo (it is public), so it is created here with a test password
+      - name: Deploy to Kubernetes
         run: |
           kubectl apply -f k8s/00-namespace.yaml
           kubectl create secret generic postgres-credentials -n tasks \
@@ -110,20 +110,20 @@ jobs:
             --from-literal=POSTGRES_DB=tasks
           kubectl apply -f k8s/10-postgres.yaml -f k8s/20-api.yaml
 
-      # "rollout status" espera a que todas las réplicas pasen su readinessProbe
-      - name: Esperar a que todo esté listo
+      # "rollout status" waits until all replicas pass their readinessProbe
+      - name: Wait until everything is ready
         run: |
           kubectl rollout status statefulset/db -n tasks --timeout=180s
           kubectl rollout status deployment/api -n tasks --timeout=180s
 
-      # Un pod temporal llama al Service "api", igual que haría cualquier otra pieza del clúster
-      - name: Probar la API a través del Service
+      # A temporary pod calls the "api" Service, just as any other piece of the cluster would
+      - name: Test the API through the Service
         run: |
           kubectl run probe --rm -i --restart=Never -n tasks --image=python:3.11-slim --quiet -- \
             python -c "import urllib.request as u; print(u.urlopen('http://api/health').read().decode())"
 
-      # "if: failure()" = solo se ejecuta si algún paso anterior falló. Deja pistas para depurar
-      - name: Mostrar el estado del clúster si algo falló
+      # "if: failure()" = only runs if a previous step failed. Leaves clues for debugging
+      - name: Show the cluster state if something failed
         if: failure()
         run: |
           kubectl get pods -n tasks -o wide
@@ -131,25 +131,25 @@ jobs:
           kubectl logs -n tasks -l app=api --all-containers --tail=50
 
   docker:
-    # "needs" hace que este job espere a los de tests: si alguno falla, no se publica nada
+    # "needs" makes this job wait for the test jobs: if any fails, nothing is published
     needs: [test, test-postgres, k8s-smoke]
-    # Este job corre también en pull requests: construye y escanea la imagen siempre,
-    # pero solo la publica cuando el código llega a main (ver el "if" del último paso)
+    # This job also runs on pull requests: it always builds and scans the image,
+    # but only publishes it when the code reaches main (see the "if" of the last step)
     runs-on: ubuntu-latest
 
-    # Permisos del token temporal que GitHub da a este job (por defecto son mínimos).
-    # packages: write permite subir imágenes al registro de GitHub
+    # Permissions of the temporary token GitHub gives this job (minimal by default).
+    # packages: write allows pushing images to GitHub's registry
     permissions:
       contents: read
       packages: write
 
     steps:
-      - name: Descargar el código
+      - name: Check out the code
         uses: actions/checkout@v4
 
-      # Inicia sesión en GHCR (el registro de imágenes de GitHub).
-      # GITHUB_TOKEN lo genera GitHub solo en cada ejecución: no hay que crear ni guardar contraseñas
-      - name: Iniciar sesión en GHCR
+      # Logs in to GHCR (GitHub's image registry).
+      # GITHUB_TOKEN is generated by GitHub on every run: no passwords to create or store
+      - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
@@ -157,25 +157,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Buildx es el motor de construcción moderno de Docker; además guarda la caché de capas
-      # dentro del job, así que el segundo build de más abajo reutiliza lo ya construido
-      - name: Preparar Buildx
+      # Buildx is Docker's modern build engine; it also keeps the layer cache
+      # inside the job, so the second build below reuses what was already built
+      - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      # "load: true" deja la imagen en el Docker local de la máquina (sin subirla a ningún sitio)
-      # para poder escanearla antes de decidir si se publica
-      - name: Construir la imagen (sin publicar)
+      # "load: true" leaves the image in the machine's local Docker (without pushing it anywhere)
+      # so it can be scanned before deciding whether to publish it
+      - name: Build the image (without publishing)
         uses: docker/build-push-action@v6
         with:
           context: .
           load: true
           tags: tasks-api:scan
 
-      # Trivy compara todo lo que hay dentro de la imagen (paquetes de Linux y librerías de Python)
-      # con una base de datos pública de vulnerabilidades conocidas (CVEs).
-      # exit-code 1 = si encuentra alguna grave, el paso falla y el job se pone en rojo.
-      # ignore-unfixed ignora las que todavía no tienen arreglo, porque no podríamos hacer nada
-      - name: Escanear vulnerabilidades con Trivy
+      # Trivy compares everything inside the image (Linux packages and Python libraries)
+      # against a public database of known vulnerabilities (CVEs).
+      # exit-code 1 = if it finds a serious one, the step fails and the job turns red.
+      # ignore-unfixed skips those that do not have a fix yet, since we could not do anything about them
+      - name: Scan for vulnerabilities with Trivy
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: tasks-api:scan
@@ -183,9 +183,9 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
-      # Solo llegamos aquí si el escaneo pasó. Se publica únicamente al hacer push a main
-      # (no en pull requests). Dos etiquetas: "latest" (la más reciente) y el hash del commit
-      - name: Publicar la imagen
+      # We only get here if the scan passed. It is published only on a push to main
+      # (not on pull requests). Two tags: "latest" (the most recent) and the commit hash
+      - name: Publish the image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
@@ -196,19 +196,19 @@ jobs:
             ghcr.io/${{ github.repository }}:${{ github.sha }}
 
   deploy:
-    # Solo se despliega si la imagen ya está publicada (y, por encadenamiento, si los tests pasaron)
+    # It only deploys if the image has been published (and, by chaining, if the tests passed)
     needs: docker
-    # El job "docker" ya no distingue entre PR y main, así que la condición vive aquí:
-    # solo desplegamos cuando el código llega a main, nunca desde una pull request
+    # The "docker" job no longer distinguishes between PR and main, so the condition lives here:
+    # we only deploy when the code reaches main, never from a pull request
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
-      # Un "deploy hook" es una URL secreta de Render: al hacerle una petición POST,
-      # Render descarga la imagen :latest de GHCR y arranca la nueva versión.
-      # El secreto se pasa por una variable de entorno para que no aparezca escrito en el comando.
-      # --fail hace que curl devuelva error (y el job falle) si Render responde con un código de error
-      - name: Avisar a Render para que despliegue
+      # A "deploy hook" is a secret Render URL: when it receives a POST request,
+      # Render pulls the :latest image from GHCR and starts the new version.
+      # The secret is passed through an environment variable so it is not written in the command.
+      # --fail makes curl return an error (and the job fail) if Render responds with an error code
+      - name: Tell Render to deploy
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: curl --fail --silent --show-error -X POST "$RENDER_DEPLOY_HOOK_URL"
