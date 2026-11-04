@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-app = FastAPI(title="Tasks API")
+app = FastAPI(title="Tasks API experiment")
 
 tasks: list[dict] = []
 
