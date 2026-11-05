@@ -12,7 +12,7 @@ function showMessage(text, isError = false) {
 function render(tasks) {
   list.replaceChildren();
   if (tasks.length === 0) {
-    showMessage("Todavía no hay tareas.");
+    showMessage("There are no tasks yet.");
     return;
   }
   showMessage("");
@@ -22,7 +22,7 @@ function render(tasks) {
     id.className = "id";
     id.textContent = `#${task.id}`;
     const title = document.createElement("span");
-    // textContent (no innerHTML): el título es texto, nunca HTML, así nadie puede inyectar código
+    // textContent (not innerHTML): the title is plain text, never HTML, so nobody can inject code
     title.textContent = task.title;
     item.append(id, title);
     list.append(item);
@@ -31,12 +31,12 @@ function render(tasks) {
 
 async function loadTasks() {
   try {
-    // Ruta relativa: la página y la API viven en el mismo servidor, no hace falta configurar nada
+    // Relative path: the page and the API live on the same server, so no configuration is needed
     const response = await fetch("/tasks");
     if (!response.ok) throw new Error(`Error ${response.status}`);
     render(await response.json());
   } catch (error) {
-    showMessage(`No se pudieron cargar las tareas (${error.message}).`, true);
+    showMessage(`Could not load the tasks (${error.message}).`, true);
   }
 }
 
@@ -56,7 +56,7 @@ form.addEventListener("submit", async (event) => {
     titleInput.value = "";
     await loadTasks();
   } catch (error) {
-    showMessage(`No se pudo crear la tarea (${error.message}).`, true);
+    showMessage(`Could not create the task (${error.message}).`, true);
   } finally {
     button.disabled = false;
     titleInput.focus();

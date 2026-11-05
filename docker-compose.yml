@@ -1,37 +1,37 @@
-# Docker Compose describe TODOS los contenedores de la aplicación en un solo archivo.
-# Se arranca con "docker compose up" y se para con "docker compose down".
-# Las variables ${...} se leen del archivo .env (copia .env.example a .env)
+# Docker Compose describes ALL the containers of the application in a single file.
+# Start with "docker compose up" and stop with "docker compose down".
+# The ${...} variables are read from the .env file (copy .env.example to .env)
 
 services:
-  # Base de datos PostgreSQL, usando la imagen oficial (no hay que construir nada)
+  # PostgreSQL database, using the official image (nothing to build)
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # Un volumen es una carpeta gestionada por Docker que vive FUERA del contenedor.
-    # Sin él, los datos se perderían al borrar el contenedor
+    # A volume is a folder managed by Docker that lives OUTSIDE the container.
+    # Without it, the data would be lost when the container is deleted
     volumes:
       - db_data:/var/lib/postgresql/data
-    # Cada cierto tiempo Docker ejecuta este comando para saber si la base de datos ya acepta
-    # conexiones. "Arrancado" no es lo mismo que "listo"
+    # Every so often Docker runs this command to find out whether the database already accepts
+    # connections. "Started" is not the same as "ready"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
 
-  # Tu API, construida con el Dockerfile de esta carpeta
+  # Your API, built with the Dockerfile in this folder
   api:
     build: .
     environment:
-      # "db" es el nombre del servicio de arriba: Compose crea una red interna
-      # donde los contenedores se encuentran entre sí por su nombre
+      # "db" is the name of the service above: Compose creates an internal network
+      # where containers find each other by their service name
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     ports:
-      - "8000:8000" # puerto de tu PC : puerto del contenedor
-    # La API no arranca hasta que la base de datos supere su healthcheck
+      - "8000:8000" # port on your PC : port in the container
+    # The API does not start until the database passes its healthcheck
     depends_on:
       db:
         condition: service_healthy

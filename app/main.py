@@ -12,7 +12,7 @@ from app.db import Task, create_tables, get_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Se ejecuta una vez al arrancar la app: crea las tablas si no existen
+    # Runs once when the app starts: creates the tables if they do not exist
     create_tables()
     yield
 
@@ -21,7 +21,7 @@ app = FastAPI(title="Tasks API experiment", lifespan=lifespan)
 
 
 class TaskIn(BaseModel):
-    # 200 es el tamaño de la columna en la base de datos
+    # 200 is the size of the column in the database
     title: str = Field(min_length=1, max_length=200)
 
 
@@ -45,7 +45,7 @@ def create_task(task: TaskIn, db: Session = Depends(get_db)):
     return {"id": new_task.id, "title": new_task.title}
 
 
-# Sirve la interfaz web (app/static) en "/". Va al FINAL a propósito: FastAPI atiende las rutas
-# en orden, así que /health, /tasks y /docs se resuelven antes y esto solo recoge el resto.
-# La ruta se calcula a partir de este archivo para que funcione desde cualquier carpeta
+# Serves the web UI (app/static) at "/". It goes LAST on purpose: FastAPI matches routes in
+# order, so /health, /tasks and /docs are resolved first and this only catches everything else.
+# The path is computed from this file so it works regardless of the working directory
 app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
